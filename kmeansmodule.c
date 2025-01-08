@@ -45,13 +45,13 @@ static PyMethodDef kmeansMethods[] = {
 
 static struct PyModuleDef kmeansmodule = {
     PyModuleDef_HEAD_INIT,
-    "kmeans",
+    "mykmeanssp",
     NULL,
     -1,
     kmeansMethods
 };
 
-PyMODINIT_FUNC PyInit_kmeans(void) {
+PyMODINIT_FUNC PyInit_mykmeanssp(void) {
     PyObject *m;
     m = PyModule_Create(&kmeansmodule);
     if (!m) {
