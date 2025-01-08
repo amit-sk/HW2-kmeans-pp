@@ -16,8 +16,16 @@ def is_integer(string):
         return False
 
 def load_datapoints(file_name_1, file_name_2):
-    # TODO: read coordinates and join
-    pass
+    datapoints1 = pd.read_csv(file_name_1, sep = ",")
+    datapoints2 = pd.read_csv(file_name_2, sep = ",")
+    datapoints1 = datapoints1.set_index(datapoints1.columns[0])
+    datapoints2 = datapoints2.set_index(datapoints2.columns[0])
+    merged_df = pd.merge(datapoints1, datapoints2,  left_index=True, right_index=True)
+    merged_df.sort_index(inplace=True)
+    lst = merged_df.values.tolist()
+    return lst
+    
+    return merged_df
 
 def read_args():
     argc = len(sys.argv)
@@ -55,8 +63,20 @@ def read_args():
 
 def main():
     np.random.seed(1234)
-
     iter, K, datapoints, N, d, eps, success = read_args()
+    print("helloooo")
+    a = load_datapoints(r"C:\Users\Altar\Downloads\tests\tests\input_1_db_1.txt", r"C:\Users\Altar\Downloads\tests\tests\input_1_db_2.txt")
+    print(a)
+    # datapoints1 = pd.read_csv(r"C:\Users\Altar\Downloads\tests\tests\input_1_db_1.txt")
+    # datapoints1 = datapoints1.set_index(datapoints1.columns[0])
+    # print(datapoints1)
+    # print("dp2")
+    # datapoints2 = pd.read_csv(r"C:\Users\Altar\Downloads\tests\tests\input_1_db_2.txt")
+    # datapoints2 = datapoints2.set_index(datapoints2.columns[0])
+    # datapoints2.sort_values(datapoints2.columns[0])
+    # print(datapoints2)
+    # print(pd.read_csv(r"C:\Users\Altar\Downloads\tests\tests\input_1_db_2.txt"))
+
 
 if __name__ == "__main__":
     main()
