@@ -49,6 +49,23 @@ PyMODINIT_FUNC PyInit_mykmeanssp(void) {
 }
 
 static PyObject* fit(PyObject *self, PyObject *args) {
+    PyObject *centroids, *datapoints;
+    PyObject *item;
+
+    if (!PyArg_ParseTuple(args, "OO", &centroids, &datapoints)) {
+        return NULL;
+    }
+
+    int N = PyObject_Length(datapoints);
+    if (N < 0) {
+        return NULL;
+    }
+
+    int k = PyObject_Length(centroids);
+    if (k < 0) {
+        return NULL;
+    }
+
     return Py_BuildValue("d", 0.0); 
 }
 
