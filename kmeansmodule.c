@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <math.h>
 
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+
 const int SUCCESS = 0;
 const int ERROR = 1;
 
@@ -30,179 +33,35 @@ struct datapoint
     struct datapoint *next;
 };
 
-/* internal funcs for read_args */
-int init_datapoint(struct datapoint **datapoint, struct coord *first_coord) {
-    struct datapoint *new_datapoint = malloc(sizeof(struct datapoint));
-    if (new_datapoint == NULL) {
-        return ERROR;
-    }
-    new_datapoint->coords = first_coord;
-    new_datapoint->next = NULL;
+static PyObject* fit(PyObject *self, PyObject *args);
 
-    *datapoint = new_datapoint;
-    return SUCCESS;    
+static PyMethodDef kmeansMethods[] = {
+    "fit",
+    (PyCFunction)fit,
+    METH_VARARGS,
+    PyDoc_STR("TODO - docstring"),
+    {NULL, NULL, 0, NULL}
+};
+
+static struct PyModuleDef kmeansmodule = {
+    PyModuleDef_HEAD_INIT,
+    "kmeans",
+    NULL,
+    -1,
+    kmeansMethods
+};
+
+PyMODINIT_FUNC PyInit_kmeans(void) {
+    PyObject *m;
+    m = PyModule_Create(&kmeansmodule);
+    if (!m) {
+        return NULL;
+    }
+    return m;
 }
 
-int init_coord(struct coord **coord, double n) {
-    struct coord *new_coord = malloc(sizeof(struct coord));
-    if (new_coord == NULL) {
-        return ERROR;
-    }
-    new_coord->coord = n;
-    new_coord->next = NULL;
-
-    *coord = new_coord;
-    return SUCCESS;
-}
-
-int parse_file(int *d, int *N, struct datapoint **datapoints) {
-    double n; /* for the double values */
-    char delim; /* commas, \n, ... */
-    struct datapoint **curr_datapoint = datapoints;
-    struct coord *first_coord = NULL;
-    struct coord **curr_coord = NULL;
-
-    /* go over first line to get d */
-    first_coord = NULL;
-    curr_coord = &first_coord;
-    do {
-        scanf("%lf%c", &n, &delim);
-        if (SUCCESS != init_coord(curr_coord, n)) {
-            return ERROR;
-        }
-        curr_coord = &(*curr_coord)->next;
-        (*d)++;
-    } while (delim != '\n');
-
-    /* initialize the first datapoint */
-    if (SUCCESS != init_datapoint(curr_datapoint, first_coord)) {
-        return ERROR;
-    }
-    curr_datapoint = &(*curr_datapoint)->next;
-    (*N)++;
-
-    /* go over the rest of the lines to get datapoints and N */
-    first_coord = NULL;
-    curr_coord = &first_coord;
-    while (scanf("%lf%c", &n, &delim) == 2) {
-        if (SUCCESS != init_coord(curr_coord, n)) {
-            return ERROR;
-        }
-        curr_coord = &(*curr_coord)->next;
-
-        if (delim == '\n') { /* if at the end of the line */
-            if (SUCCESS != init_datapoint(curr_datapoint, first_coord)) {
-                return ERROR;
-            }
-            curr_datapoint = &(*curr_datapoint)->next;
-            first_coord = NULL;
-            curr_coord = &first_coord;
-            (*N)++;
-        }
-    }
-
-    return SUCCESS;
-}
-
-int parse_integer(char *src, int *dest) {
-    int n = 0;
-    int chars_read = 0;
-    int amount_parsed = 0;
-
-    amount_parsed = sscanf(src, "%d%n", &n, &chars_read);
-    if (amount_parsed != 1 || src[chars_read] != '\0') {
-        /* failed to parse integer, or trailing characters found */
-        if (src[chars_read] == '.') {
-            char *trail_string = src + (chars_read + 1);
-            int trail = 0;
-            int trail_chars_read = 0;
-            amount_parsed = sscanf(trail_string, "%d%n", &trail, &trail_chars_read);
-            if (!trail && amount_parsed <= 1 && !trail_string[trail_chars_read]) {
-                *dest = n;
-                return SUCCESS;
-            }
-        }
-        return ERROR;
-    }
-
-    *dest = n;
-    return SUCCESS;
-}
-
-/* parse the args (K, iter and the datapoints) */
-int read_args(int argc, char *argv[], int *K, int *iter, int *d, int *N, struct datapoint **datapoints) {
-    /* Read arguments - argc should be 2 if there is not iter arg, 3 if there is */
-    if (argc < 2 || argc > 3) {
-        printf("%s", GENERIC_ERROR_MSG);
-        return ERROR;
-    }
-
-    /* read and validate iter, if given */
-    if (argc == 3) {
-        if (SUCCESS != parse_integer(argv[2], iter) || *iter <= 1 || *iter >= 1000) {
-            printf("%s", INVALID_ITER_ERROR_MSG);
-            return ERROR;
-        }
-    }
-
-    /* read and validate K from below */
-    if (SUCCESS != parse_integer(argv[1], K) || *K <= 1) {
-        printf("%s", INVALID_K_ERROR_MSG);
-        return ERROR;
-    }
-
-    /* parses datapoints from file and obtains d and N */
-    if (SUCCESS != parse_file(d, N, datapoints)) {
-        printf("%s", GENERIC_ERROR_MSG);
-        return ERROR;
-    }
-
-    /* validate K from above */
-    if (*K >= *N) {
-        printf("%s", INVALID_K_ERROR_MSG);
-        return ERROR;
-    }
-
-    return SUCCESS;
-}
-
-
-int init_centroids(int d, int K, struct datapoint *points, struct centroid **centroids) {
-    int i = 0;
-    int j = 0;
-    struct datapoint *curr_datapoint = NULL;
-    struct coord **curr_coord = NULL;
-    struct coord *point_coord = NULL;
-
-    /* memory initialized as zeroes. */
-    struct centroid *cent = calloc(K, sizeof(struct centroid));
-    if (cent == NULL) {
-        return ERROR;
-    }
-
-    /* set first K centroids to first K datapoints. */
-    for (curr_datapoint = points; i < K; i++, curr_datapoint = curr_datapoint->next) {
-        /* set centroid coords to datapoint coordinates */
-        curr_coord = &(cent + i)->centroid_coords;
-        for (point_coord = curr_datapoint->coords;
-             point_coord != NULL;
-             point_coord = point_coord->next, curr_coord = &(*curr_coord)->next) {
-            if (SUCCESS != init_coord(curr_coord, point_coord->coord)) {
-                return ERROR;
-            }
-        }
-        
-        /* set sums to zeroes on all dimensions */
-        curr_coord = &(cent + i)->sum;
-        for (j = 0; j < d; j++, curr_coord = &(*curr_coord)->next) {
-            if (SUCCESS != init_coord(curr_coord, 0)) {
-                return ERROR;
-            }
-        }
-    }
-
-    *centroids = cent;
-    return SUCCESS;
+static PyObject* fit(PyObject *self, PyObject *args) {
+    return Py_BuildValue("d", 0.0); 
 }
 
 void add_coord_to_centroid(struct centroid *cent, struct datapoint *point, int d){
@@ -334,32 +193,4 @@ void print_results(int K, struct centroid *centroids) {
         } while (curr_coord != NULL);
         printf("\n");
     }
-}
-
-int main(int argc, char *argv[]) {
-    int return_code = SUCCESS;
-    int K = 0;
-    int iter = DEFAULT_ITER;
-    int d = 0;
-    int N = 0;
-    struct datapoint *datapoints = NULL;
-    struct centroid *centroids = NULL;
-
-    if (SUCCESS != read_args(argc, argv, &K, &iter, &d, &N, &datapoints)) {
-        return_code = ERROR;
-        goto cleanup;
-    }
-
-    if (SUCCESS != init_centroids(d, K, datapoints, &centroids)) {
-        printf("%s", GENERIC_ERROR_MSG);
-        return_code = ERROR;
-        goto cleanup;
-    }
-
-    run_kmeans(d, K, iter, datapoints, centroids);
-    print_results(K, centroids);
-
-cleanup:
-    free_all(K, datapoints, centroids);
-    return return_code;
 }
