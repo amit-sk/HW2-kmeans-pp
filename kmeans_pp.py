@@ -53,10 +53,32 @@ def read_args():
     
     return iter, K, datapoints, N, d, eps, True
 
+def euclidean_distance(point1, point2):
+    return (sum([(point1[i] - point2[i])**2 for i in range(len(point1))]))**0.5
+
+def init_centroids(datapoints, K, N):
+    not_chosen = set(range(N))
+    first_centroid_ind = np.random.choice(list(not_chosen))
+    centroids = [datapoints[first_centroid_ind]]
+    not_chosen.remove(first_centroid_ind)
+
+    for i in range(K-1):
+        not_chosen_ls = list(not_chosen)
+        D_values = [min([euclidean_distance(datapoints[point], centroid) for centroid in centroids]) for point in not_chosen_ls]
+        D_sum = sum(D_values)
+        P_values = [D_value/D_sum for D_value in D_values]
+
+        new_centroid_ind = np.random.choice(not_chosen_ls, p=P_values)
+        centroids.append(datapoints[new_centroid_ind])
+        not_chosen.remove(new_centroid_ind)
+
+    return centroids
+
 def main():
     np.random.seed(1234)
 
     iter, K, datapoints, N, d, eps, success = read_args()
+    centroids = init_centroids(datapoints, K, N)
 
 if __name__ == "__main__":
     main()
