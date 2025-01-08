@@ -16,21 +16,9 @@ const char *INVALID_K_ERROR_MSG = "Invalid number of clusters!\n";
 const char *INVALID_ITER_ERROR_MSG = "Invalid maximum iteration!\n";
 
 struct centroid {
-    struct coord *centroid_coords;
-    struct coord *sum;
+    double *centroid_coords;
+    double *sum;
     int count;
-};
-
-struct coord
-{
-    double coord;
-    struct coord *next;
-};
-
-struct datapoint
-{
-    struct coord *coords;
-    struct datapoint *next;
 };
 
 static PyObject* fit(PyObject *self, PyObject *args);
@@ -64,49 +52,44 @@ static PyObject* fit(PyObject *self, PyObject *args) {
     return Py_BuildValue("d", 0.0); 
 }
 
-void add_coord_to_centroid(struct centroid *cent, struct datapoint *point, int d){
+void add_coord_to_centroid(struct centroid *cent, double *point_coords, int d){
     int i;
-    struct coord *curr_sum_coord = cent->sum;
-    struct coord *curr_datapoint_coord = point->coords;
+    double *sum_coords = cent->sum;
 
     for (i = 0; i < d; i++){
-        curr_sum_coord->coord += curr_datapoint_coord->coord;
-        curr_sum_coord = curr_sum_coord->next;
-        curr_datapoint_coord = curr_datapoint_coord->next;
+        sum_coords[i] += point_coords[i];
     }
 }
 
-double calc_euclidean_distance(struct coord *coord1, struct coord *coord2, int d){
+double calc_euclidean_distance(double *coord1, double *coord2, int d){
     double sum = 0;
     int i;
 
     for (i = 0; i < d; i++){
-        sum += pow((coord1->coord - coord2->coord), 2);
-        coord1 = coord1->next;
-        coord2 = coord2->next;
+        sum += pow((coord1[i] - coord2[i]), 2);
     }
     return sqrt(sum);
 }
 
 
-void run_kmeans(int d, int K, int iter, struct datapoint *points, struct centroid *centroids) {
+void run_kmeans(int N, int d, int K, int iter, double **points, struct centroid *centroids) {
     int is_not_converged = 1;
     int j = 0;
     int k = 0;
-    struct datapoint *point = NULL;
+    double *point = NULL;
     struct centroid *cent = NULL;
     int index = 0;
     int i = 0;
     
     for (i = 0; i < iter && is_not_converged; i++) {
         /* for each point, find closest centroid and add to its sum. */
-        for (point = points; point != NULL; point = point->next) {
+        for (j = 0; j < N; j++) {
             struct centroid *min_cent = centroids;
             double min_distance = HUGE_VAL;
             double curr_distance;
 
             for (index = 0; index < K; index++){
-                curr_distance = calc_euclidean_distance((centroids + index)->centroid_coords, point->coords, d);
+                curr_distance = calc_euclidean_distance((centroids + index)->centroid_coords, points[j], d);
                 if (curr_distance < min_distance){
                     min_distance = curr_distance;
                     min_cent = centroids + index;
@@ -120,34 +103,32 @@ void run_kmeans(int d, int K, int iter, struct datapoint *points, struct centroi
         cent = centroids;
         is_not_converged = 0;
         for (j = 0; j < K; j++, cent++) {
-            struct coord *curr_coord = cent->centroid_coords;
-            struct coord *sum_coord = cent->sum;
-            struct coord *curr_sum_coord = sum_coord;
+            double *cent_coords = cent->centroid_coords;
+            double *sum_coords = cent->sum;
             int count = cent->count;
 
             for (k = 0; k < d; k++) {
                 if (count != 0) {
-                    curr_sum_coord->coord = curr_sum_coord->coord/count;
+                    sum_coords[k] = sum_coords[k]/count;
                 }
-                curr_sum_coord = curr_sum_coord->next;
             }
 
-            if (calc_euclidean_distance(cent->centroid_coords, sum_coord, d) >= EPSILON) {
+            if (calc_euclidean_distance(cent_coords, sum_coords, d) >= EPSILON) {
                 is_not_converged = 1;
             }
 
             /* reset sum and count */
             for (k = 0; k < d; k++) {
-                curr_coord->coord = sum_coord->coord;
-                sum_coord->coord = 0;
-                curr_coord = curr_coord->next;
-                sum_coord = sum_coord->next;
+                cent_coords[k] = sum_coords[k];
+                sum_coords[k] = 0;
             }
             cent->count = 0;
         }
     }
 }
 
+/* TODO - update all free functions to new memory structure */
+/*
 void free_coords(struct coord *coord) {
     struct coord *curr_coord = coord;
     while (curr_coord != NULL) {
@@ -179,18 +160,21 @@ void free_all(int K, struct datapoint *datapoints, struct centroid *centroids) {
         free(centroids);
     }
 }
+*/
 
-void print_results(int K, struct centroid *centroids) {
+void print_results(int d, int K, struct centroid *centroids) {
     int i = 0;
+    int j = 0;
+    
     for (; i < K; i++){
-        struct coord *curr_coord = (centroids + i)->centroid_coords;
-        do {
-            printf("%.4f", curr_coord->coord);
-            curr_coord = curr_coord->next;
-            if (curr_coord != NULL) {
+        for (; j < d; j++){
+            printf("%.4f,", (centroids + i)->centroid_coords[j]);
+            if (j < d - 1) {
                 printf(",");
             }
-        } while (curr_coord != NULL);
-        printf("\n");
+            else {
+                printf("\n");
+            }
+        }
     }
 }
