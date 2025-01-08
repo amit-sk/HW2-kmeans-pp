@@ -16,8 +16,16 @@ def is_integer(string):
         return False
 
 def load_datapoints(file_name_1, file_name_2):
-    # TODO: read coordinates and join
-    pass
+    datapoints1 = pd.read_csv(file_name_1, sep = ",")
+    datapoints2 = pd.read_csv(file_name_2, sep = ",")
+    datapoints1 = datapoints1.set_index(datapoints1.columns[0])
+    datapoints2 = datapoints2.set_index(datapoints2.columns[0])
+    merged_df = pd.merge(datapoints1, datapoints2,  left_index=True, right_index=True)
+    merged_df.sort_index(inplace=True)
+    lst = merged_df.values.tolist()
+    return lst
+    
+    return merged_df
 
 def read_args():
     argc = len(sys.argv)
@@ -76,7 +84,6 @@ def init_centroids(datapoints, K, N):
 
 def main():
     np.random.seed(1234)
-
     iter, K, datapoints, N, d, eps, success = read_args()
     centroids = init_centroids(datapoints, K, N)
 
