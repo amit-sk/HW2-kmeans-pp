@@ -50,7 +50,6 @@ PyMODINIT_FUNC PyInit_mykmeanssp(void) {
 
 static PyObject* fit(PyObject *self, PyObject *args) {
     PyObject *centroids, *datapoints;
-    PyObject *item;
     PyObject *curr_item;
     double *curr_coor;
     double *datapoints_array;
@@ -72,10 +71,9 @@ static PyObject* fit(PyObject *self, PyObject *args) {
 
     datapoints_array = (double *)calloc(N*D, sizeof(double));
 
-    for (int i = 0; i<N; i++){
+    for (int i = 0; i<N; i++) {
         curr_item = PyList_GetItem(datapoints, i);
-        for (int j = 0; j<D; j++){
-            
+        for (int j = 0; j<D; j++) {
             datapoints_array[i*D+j] = PyFloat_AsDouble(PyList_GetItem(curr_item, j));
         }
     }
@@ -98,7 +96,7 @@ static PyObject* fit(PyObject *self, PyObject *args) {
 
     centroids_array = (struct centroid *)calloc(K, sizeof(struct centroid));
 
-    for (int i = 0; i<K; i++){
+    for (int i = 0; i<K; i++) {
         curr_item = PyList_GetItem(centroids, i);
         centroids_array[i].centroid_coords = (double *)calloc(D, sizeof(double));
         centroids_array[i].sum = (double *)calloc(D, sizeof(double));
@@ -140,6 +138,8 @@ static PyObject* fit(PyObject *self, PyObject *args) {
         }
         printf("\n");
     }
+
+    free_all(K, datapoints_array, centroids_array);
 
     return centroid_list; 
 }
@@ -224,40 +224,20 @@ void run_kmeans(int N, int d, int K, int iter, double **points, struct centroid 
     }
 }
 
-/* TODO - update all free functions to new memory structure */
-/*
-void free_coords(struct coord *coord) {
-    struct coord *curr_coord = coord;
-    while (curr_coord != NULL) {
-        struct coord *next_coord = curr_coord->next;
-        free(curr_coord);
-        curr_coord = next_coord;
-    }
-}
-
 void free_all(int K, struct datapoint *datapoints, struct centroid *centroids) {
     int i;
     struct centroid *curr_centroid;
-    struct datapoint *curr_datapoint;
-    struct datapoint *next_datapoint;
 
-    curr_datapoint = datapoints;
-    while (curr_datapoint != NULL) {
-        next_datapoint = curr_datapoint->next;
-        free_coords(curr_datapoint->coords);
-        free(curr_datapoint);
-        curr_datapoint = next_datapoint;
-    }
+    free(datapoints);
 
     if (centroids != NULL) {
         for (curr_centroid = centroids, i = 0; i < K; i++, curr_centroid++) {
-            free_coords(curr_centroid->centroid_coords);
-            free_coords(curr_centroid->sum);
+            free(curr_centroid->centroid_coords);
+            free(curr_centroid->sum);
         }
         free(centroids);
     }
 }
-*/
 
 void print_results(int d, int K, struct centroid *centroids) {
     int i = 0;
