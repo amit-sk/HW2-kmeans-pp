@@ -52,6 +52,7 @@ static PyObject* fit(PyObject *self, PyObject *args) {
     PyObject *centroids, *datapoints;
     PyObject *item;
     PyObject *curr_item;
+    double *curr_coor;
     double *datapoints_array;
     struct centroid *centroids_array;
 
@@ -63,11 +64,11 @@ static PyObject* fit(PyObject *self, PyObject *args) {
     if (N < 0) {
         return NULL;
     }
-    printf("%d\n", N);
+    printf("N: %d\n", N);
 
     curr_item = PyList_GetItem(datapoints, 0);
     int D = PyObject_Length(curr_item);
-    printf("%d\n", D);
+    printf("d: %d\n", D);
 
     datapoints_array = (double *)calloc(N*D, sizeof(double));
 
@@ -78,7 +79,9 @@ static PyObject* fit(PyObject *self, PyObject *args) {
             datapoints_array[i*D+j] = PyFloat_AsDouble(PyList_GetItem(curr_item, j));
         }
     }
-    /*delete later for debugging*/
+
+    /* TODO: delete later for debugging*/
+    printf("datapoints:\n");
     for (int i = 0; i < N; i++) {
         printf("Row %d: ", i);
         for (int j = 0; j < D; j++) {
@@ -87,16 +90,15 @@ static PyObject* fit(PyObject *self, PyObject *args) {
         printf("\n");
     }
 
-
-    int k = PyObject_Length(centroids);
-    if (k < 0) {
+    int K = PyObject_Length(centroids);
+    if (K < 0) {
         return NULL;
     }
-    printf("%d\n", k);
+    printf("K : %d\n", K);
 
-    centroids_array = (struct centroid *)calloc(k, sizeof(struct centroid));
+    centroids_array = (struct centroid *)calloc(K, sizeof(struct centroid));
 
-    for (int i = 0; i<k; i++){
+    for (int i = 0; i<K; i++){
         curr_item = PyList_GetItem(centroids, i);
         centroids_array[i].centroid_coords = (double *)calloc(D, sizeof(double));
         centroids_array[i].sum = (double *)calloc(D, sizeof(double));
@@ -104,17 +106,39 @@ static PyObject* fit(PyObject *self, PyObject *args) {
             centroids_array[i].centroid_coords[j] = PyFloat_AsDouble(PyList_GetItem(curr_item, j));
         }
     }
-    int iter = 100;
-    run_kmeans( N,  D,  k,  iter, datapoints_array, centroids_array);
 
-    PyObject *centroid_list = PyList_New(k)
-    for (int i = 0; i<k; i++){
-        PyObject *centroid_coordinates = PyList_New(D)
-        for (int j = 0; j<D; j++){
-            curr_coor = PyFloat_FromDouble(centroids_array[i].centroid_coords[j])
-            PyList_SetItem(centroid_coordinates, j, curr_coor)
+    /* TODO: delete later for debugging*/
+    printf("centroids:\n");
+    for (int i = 0; i < K; i++) {
+        printf("Row %d: ", i);
+        for (int j = 0; j < D; j++) {
+            printf("%f ", centroids_array[i].centroid_coords[j]);
         }
-        PyList_SetItem(centroid_list, i, centroid_coordinates)
+        printf("\n");
+    }
+    printf("running algorithm...\n");
+
+    int iter = 100;  /* TODO: obtain iter from python */
+    run_kmeans( N,  D,  K,  iter, datapoints_array, centroids_array);
+
+    PyObject *centroid_list = PyList_New(K);
+    for (int i = 0; i<K; i++){
+        PyObject *centroid_coordinates = PyList_New(D);
+        for (int j = 0; j<D; j++){
+            curr_coor = PyFloat_FromDouble(centroids_array[i].centroid_coords[j]);
+            PyList_SetItem(centroid_coordinates, j, curr_coor);
+        }
+        PyList_SetItem(centroid_list, i, centroid_coordinates);
+    }
+
+    /* TODO: delete later for debugging*/
+    printf("result centroids:\n");
+    for (int i = 0; i < K; i++) {
+        printf("Row %d: ", i);
+        for (int j = 0; j < D; j++) {
+            printf("%f ", centroids_array[i].centroid_coords[j]);
+        }
+        printf("\n");
     }
 
     return centroid_list; 
@@ -150,19 +174,24 @@ void run_kmeans(int N, int d, int K, int iter, double **points, struct centroid 
     int i = 0;
     
     for (i = 0; i < iter && is_not_converged; i++) {
+        printf("iteration %d\n", i+1);
         /* for each point, find closest centroid and add to its sum. */
-        for (j = 0; j < N; j++) {
+        for (j = 0, point = points; j < N; j++, point += d) {  /* TODO remove j*/ 
             struct centroid *min_cent = centroids;
             double min_distance = HUGE_VAL;
             double curr_distance;
 
+            printf("point %d/%d\n", j+1, N);
+
             for (index = 0; index < K; index++){
-                curr_distance = calc_euclidean_distance((centroids + index)->centroid_coords, points +(j*d), d);
+                printf("centroid %d/%d\n", index+1, K);
+                curr_distance = calc_euclidean_distance((centroids + index)->centroid_coords, point, d);
                 if (curr_distance < min_distance){
                     min_distance = curr_distance;
                     min_cent = centroids + index;
                 }
             }
+            printf("closest centroid found: %d\n", min_cent - centroids + 1);
             min_cent->count++;
             add_coord_to_centroid(min_cent, point, d);
         }
