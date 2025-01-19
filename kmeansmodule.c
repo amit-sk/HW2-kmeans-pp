@@ -51,6 +51,9 @@ PyMODINIT_FUNC PyInit_mykmeanssp(void) {
 static PyObject* fit(PyObject *self, PyObject *args) {
     PyObject *centroids, *datapoints;
     PyObject *item;
+    PyObject *curr_item;
+    double *datapoints_array;
+    struct centroid *centroids_array;
 
     if (!PyArg_ParseTuple(args, "OO", &centroids, &datapoints)) {
         return NULL;
@@ -60,13 +63,61 @@ static PyObject* fit(PyObject *self, PyObject *args) {
     if (N < 0) {
         return NULL;
     }
+    printf("%d\n", N);
+
+    curr_item = PyList_GetItem(datapoints, 0);
+    int D = PyObject_Length(curr_item);
+    printf("%d\n", D);
+
+    datapoints_array = (double *)calloc(N*D, sizeof(double));
+
+    for (int i = 0; i<N; i++){
+        curr_item = PyList_GetItem(datapoints, i);
+        for (int j = 0; j<D; j++){
+            
+            datapoints_array[i*D+j] = PyFloat_AsDouble(PyList_GetItem(curr_item, j));
+        }
+    }
+    /*delete later for debugging*/
+    for (int i = 0; i < N; i++) {
+        printf("Row %d: ", i);
+        for (int j = 0; j < D; j++) {
+            printf("%f ", datapoints_array[i * D + j]);
+        }
+        printf("\n");
+    }
+
 
     int k = PyObject_Length(centroids);
     if (k < 0) {
         return NULL;
     }
+    printf("%d\n", k);
 
-    return Py_BuildValue("d", 0.0); 
+    centroids_array = (struct centroid *)calloc(k, sizeof(struct centroid));
+
+    for (int i = 0; i<k; i++){
+        curr_item = PyList_GetItem(centroids, i);
+        centroids_array[i].centroid_coords = (double *)calloc(D, sizeof(double));
+        centroids_array[i].sum = (double *)calloc(D, sizeof(double));
+        for (int j = 0; j<D; j++){
+            centroids_array[i].centroid_coords[j] = PyFloat_AsDouble(PyList_GetItem(curr_item, j));
+        }
+    }
+    int iter = 100;
+    run_kmeans( N,  D,  k,  iter, datapoints_array, centroids_array);
+
+    PyObject *centroid_list = PyList_New(k)
+    for (int i = 0; i<k; i++){
+        PyObject *centroid_coordinates = PyList_New(D)
+        for (int j = 0; j<D; j++){
+            curr_coor = PyFloat_FromDouble(centroids_array[i].centroid_coords[j])
+            PyList_SetItem(centroid_coordinates, j, curr_coor)
+        }
+        PyList_SetItem(centroid_list, i, centroid_coordinates)
+    }
+
+    return centroid_list; 
 }
 
 void add_coord_to_centroid(struct centroid *cent, double *point_coords, int d){
@@ -106,7 +157,7 @@ void run_kmeans(int N, int d, int K, int iter, double **points, struct centroid 
             double curr_distance;
 
             for (index = 0; index < K; index++){
-                curr_distance = calc_euclidean_distance((centroids + index)->centroid_coords, points[j], d);
+                curr_distance = calc_euclidean_distance((centroids + index)->centroid_coords, points +(j*d), d);
                 if (curr_distance < min_distance){
                     min_distance = curr_distance;
                     min_cent = centroids + index;
