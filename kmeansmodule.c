@@ -50,12 +50,13 @@ PyMODINIT_FUNC PyInit_mykmeanssp(void) {
 
 static PyObject* fit(PyObject *self, PyObject *args) {
     PyObject *centroids, *datapoints;
+    PyObject *python_iter, *python_eps;
     PyObject *curr_item;
     double *curr_coor;
     double *datapoints_array;
     struct centroid *centroids_array;
 
-    if (!PyArg_ParseTuple(args, "OO", &centroids, &datapoints)) {
+    if (!PyArg_ParseTuple(args, "OOOO", &centroids, &datapoints, &python_iter, &python_eps)) {
         return NULL;
     }
 
@@ -63,11 +64,11 @@ static PyObject* fit(PyObject *self, PyObject *args) {
     if (N < 0) {
         return NULL;
     }
-    printf("N: %d\n", N);
+    printf("N: %d\n", N); /* TODO: delete */
 
     curr_item = PyList_GetItem(datapoints, 0);
     int d = PyObject_Length(curr_item);
-    printf("d: %d\n", d);
+    printf("d: %d\n", d); /* TODO: delete */
 
     datapoints_array = (double *)calloc(N*d, sizeof(double));
 
@@ -82,7 +83,7 @@ static PyObject* fit(PyObject *self, PyObject *args) {
     if (K < 0) {
         return NULL;
     }
-    printf("K: %d\n", K);
+    printf("K: %d\n", K); /* TODO: delete */
 
     centroids_array = (struct centroid *)calloc(K, sizeof(struct centroid));
 
@@ -95,8 +96,14 @@ static PyObject* fit(PyObject *self, PyObject *args) {
         }
     }
 
-    int iter = 100;  /* TODO: obtain iter from python */
-    run_kmeans( N,  d,  K,  iter, datapoints_array, centroids_array);
+    long long_iter = PyLong_AsLong(python_iter); /* TODO: PyLong_AsInt wasn't recognized :( */
+    int iter = (int)long_iter;
+    printf("iter: %d\n", iter); /* TODO: delete */
+
+    double eps = PyFloat_AsDouble(python_eps);
+    printf("eps: %.4f\n", eps); /* TODO: delete */
+
+    run_kmeans(N, d, K, iter, eps, datapoints_array, centroids_array);
 
     PyObject *centroid_list = PyList_New(K);
     for (int i = 0; i<K; i++){
@@ -133,7 +140,7 @@ double calc_euclidean_distance(double *coord1, double *coord2, int d){
 }
 
 
-void run_kmeans(int N, int d, int K, int iter, double **points, struct centroid *centroids) {
+void run_kmeans(int N, int d, int K, int iter, double eps, double **points, struct centroid *centroids) {
     int is_not_converged = 1;
     int j = 0;
     int k = 0;
@@ -174,7 +181,7 @@ void run_kmeans(int N, int d, int K, int iter, double **points, struct centroid 
                 }
             }
 
-            if (calc_euclidean_distance(cent_coords, sum_coords, d) >= EPSILON) {
+            if (calc_euclidean_distance(cent_coords, sum_coords, d) >= eps) {
                 is_not_converged = 1;
             }
 

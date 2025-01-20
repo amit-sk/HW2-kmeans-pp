@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import sys
+import mykmeanssp
 
 DEFAULT_ITER = 300
 
@@ -132,7 +133,7 @@ def main():
         return
     
     centroids, centroid_indexes = init_centroids(datapoints, datapoint_indexes, K)
-    centroids = run_kmeans(K, datapoints, centroids, d, eps, iter)
+    centroids = mykmeanssp.fit(centroids, datapoints, iter, eps)
 
     # centroid indexes
     print(",".join([str(i) for i in centroid_indexes]))
