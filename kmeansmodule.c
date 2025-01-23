@@ -63,14 +63,14 @@ static PyObject* fit(PyObject *self, PyObject *args) {
     PyObject *centroid_list = NULL;  /* output value */
     PyObject *centroids = NULL;
     PyObject *datapoints = NULL;
-    PyObject *python_iter = NULL;
-    PyObject *python_eps = NULL;
+    unsigned int iter = 0;
+    double eps = 0.0;
     PyObject *curr_item = NULL;
     PyObject *curr_coor = NULL;
     double *datapoints_array = NULL;
     struct centroid *centroids_array = NULL;
 
-    if (!PyArg_ParseTuple(args, "OOOO", &centroids, &datapoints, &python_iter, &python_eps)) {
+    if (!PyArg_ParseTuple(args, "OOId", &centroids, &datapoints, &iter, &eps)) {
         goto cleanup;
     }
 
@@ -89,9 +89,9 @@ static PyObject* fit(PyObject *self, PyObject *args) {
         curr_item = PyList_GetItem(datapoints, i);
         GOTO_CLEANUP_IF_NULL(curr_item);
         for (int j = 0; j<d; j++) {
-            curr_item = PyList_GetItem(curr_item, j);
-            GOTO_CLEANUP_IF_NULL(curr_item);
-            datapoints_array[i*d+j] = PyFloat_AsDouble(curr_item);
+            curr_coor = PyList_GetItem(curr_item, j);
+            GOTO_CLEANUP_IF_NULL(curr_coor);
+            datapoints_array[i*d+j] = PyFloat_AsDouble(curr_coor);
             GOTO_CLEANUP_IF_PYERROR_OCCURED();
         }
     }
@@ -112,19 +112,12 @@ static PyObject* fit(PyObject *self, PyObject *args) {
         GOTO_CLEANUP_IF_NULL(centroids_array[i].sum);
 
         for (int j = 0; j<d; j++){
-            curr_item = PyList_GetItem(curr_item, j);
-            GOTO_CLEANUP_IF_NULL(curr_item);
-            centroids_array[i].centroid_coords[j] = PyFloat_AsDouble(curr_item);
+            curr_coor = PyList_GetItem(curr_item, j);
+            GOTO_CLEANUP_IF_NULL(curr_coor);
+            centroids_array[i].centroid_coords[j] = PyFloat_AsDouble(curr_coor);
             GOTO_CLEANUP_IF_PYERROR_OCCURED();
         }
     }
-
-    long long_iter = PyLong_AsLong(python_iter); /* TODO: PyLong_AsInt wasn't recognized :( */
-    GOTO_CLEANUP_IF_PYERROR_OCCURED();
-    int iter = (int)long_iter;
-
-    double eps = PyFloat_AsDouble(python_eps);
-    GOTO_CLEANUP_IF_PYERROR_OCCURED();
 
     run_kmeans(N, d, K, iter, eps, datapoints_array, centroids_array);
 
