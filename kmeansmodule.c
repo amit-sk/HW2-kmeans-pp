@@ -49,6 +49,96 @@ PyMODINIT_FUNC PyInit_mykmeanssp(void) {
     return m;
 }
 
+void add_coord_to_centroid(struct centroid *cent, double *point_coords, int d){
+    int i;
+    double *sum_coords = cent->sum;
+
+    for (i = 0; i < d; i++){
+        sum_coords[i] += point_coords[i];
+    }
+}
+
+double calc_euclidean_distance(double *coord1, double *coord2, int d){
+    double sum = 0;
+    int i;
+
+    for (i = 0; i < d; i++){
+        sum += pow((coord1[i] - coord2[i]), 2);
+    }
+    return sqrt(sum);
+}
+
+
+void run_kmeans(int N, int d, int K, int iter, double eps, double *points, struct centroid *centroids) {
+    int is_not_converged = 1;
+    int j = 0;
+    int k = 0;
+    double *point = NULL;
+    struct centroid *cent = NULL;
+    int index = 0;
+    int i = 0;
+    
+    for (i = 0; i < iter && is_not_converged; i++) {
+        /* for each point, find closest centroid and add to its sum. */
+        for (j = 0, point = points; j < N; j++, point += d) {
+            struct centroid *min_cent = centroids;
+            double min_distance = HUGE_VAL;
+            double curr_distance;
+
+            for (index = 0; index < K; index++){
+                curr_distance = calc_euclidean_distance((centroids + index)->centroid_coords, point, d);
+                if (curr_distance < min_distance){
+                    min_distance = curr_distance;
+                    min_cent = centroids + index;
+                }
+            }
+            min_cent->count++;
+            add_coord_to_centroid(min_cent, point, d);
+        }
+ 
+        /* update centroids and check convergance. */
+        cent = centroids;
+        is_not_converged = 0;
+        for (j = 0; j < K; j++, cent++) {
+            double *cent_coords = cent->centroid_coords;
+            double *sum_coords = cent->sum;
+            int count = cent->count;
+
+            for (k = 0; k < d; k++) {
+                if (count != 0) {
+                    sum_coords[k] = sum_coords[k]/count;
+                }
+            }
+
+            if (calc_euclidean_distance(cent_coords, sum_coords, d) >= eps) {
+                is_not_converged = 1;
+            }
+
+            /* reset sum and count */
+            for (k = 0; k < d; k++) {
+                cent_coords[k] = sum_coords[k];
+                sum_coords[k] = 0;
+            }
+            cent->count = 0;
+        }
+    }
+}
+
+void free_all(int K, struct datapoint *datapoints, struct centroid *centroids) {
+    int i;
+    struct centroid *curr_centroid;
+
+    free(datapoints);
+
+    if (centroids != NULL) {
+        for (curr_centroid = centroids, i = 0; i < K; i++, curr_centroid++) {
+            free(curr_centroid->centroid_coords);
+            free(curr_centroid->sum);
+        }
+        free(centroids);
+    }
+}
+
 /*  
   Fit method arguments:
    initial_centroids (PyObject*): A Python list of K initialized centroids.
@@ -139,94 +229,4 @@ cleanup:
     free_all(K, datapoints_array, centroids_array);
 
     return centroid_list; 
-}
-
-void add_coord_to_centroid(struct centroid *cent, double *point_coords, int d){
-    int i;
-    double *sum_coords = cent->sum;
-
-    for (i = 0; i < d; i++){
-        sum_coords[i] += point_coords[i];
-    }
-}
-
-double calc_euclidean_distance(double *coord1, double *coord2, int d){
-    double sum = 0;
-    int i;
-
-    for (i = 0; i < d; i++){
-        sum += pow((coord1[i] - coord2[i]), 2);
-    }
-    return sqrt(sum);
-}
-
-
-void run_kmeans(int N, int d, int K, int iter, double eps, double *points, struct centroid *centroids) {
-    int is_not_converged = 1;
-    int j = 0;
-    int k = 0;
-    double *point = NULL;
-    struct centroid *cent = NULL;
-    int index = 0;
-    int i = 0;
-    
-    for (i = 0; i < iter && is_not_converged; i++) {
-        /* for each point, find closest centroid and add to its sum. */
-        for (j = 0, point = points; j < N; j++, point += d) {
-            struct centroid *min_cent = centroids;
-            double min_distance = HUGE_VAL;
-            double curr_distance;
-
-            for (index = 0; index < K; index++){
-                curr_distance = calc_euclidean_distance((centroids + index)->centroid_coords, point, d);
-                if (curr_distance < min_distance){
-                    min_distance = curr_distance;
-                    min_cent = centroids + index;
-                }
-            }
-            min_cent->count++;
-            add_coord_to_centroid(min_cent, point, d);
-        }
- 
-        /* update centroids and check convergance. */
-        cent = centroids;
-        is_not_converged = 0;
-        for (j = 0; j < K; j++, cent++) {
-            double *cent_coords = cent->centroid_coords;
-            double *sum_coords = cent->sum;
-            int count = cent->count;
-
-            for (k = 0; k < d; k++) {
-                if (count != 0) {
-                    sum_coords[k] = sum_coords[k]/count;
-                }
-            }
-
-            if (calc_euclidean_distance(cent_coords, sum_coords, d) >= eps) {
-                is_not_converged = 1;
-            }
-
-            /* reset sum and count */
-            for (k = 0; k < d; k++) {
-                cent_coords[k] = sum_coords[k];
-                sum_coords[k] = 0;
-            }
-            cent->count = 0;
-        }
-    }
-}
-
-void free_all(int K, struct datapoint *datapoints, struct centroid *centroids) {
-    int i;
-    struct centroid *curr_centroid;
-
-    free(datapoints);
-
-    if (centroids != NULL) {
-        for (curr_centroid = centroids, i = 0; i < K; i++, curr_centroid++) {
-            free(curr_centroid->centroid_coords);
-            free(curr_centroid->sum);
-        }
-        free(centroids);
-    }
 }
