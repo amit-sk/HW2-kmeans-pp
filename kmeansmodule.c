@@ -47,7 +47,16 @@ PyMODINIT_FUNC PyInit_mykmeanssp(void) {
     }
     return m;
 }
-
+/*  
+  Fit method arguments:
+   initial_centroids (PyObject*): A Python list of K initialized centroids.
+   datapoints (PyObject*): A Python list of N data points, each being a list of D floats.
+   max_iter (int): Maximum number of iterations to run the K-means algorithm.
+   epsilon (double): Convergence threshold (for centroid change).
+  
+  Returns:
+   PyObject*: A Python list of the final centroids, each being a list of D floats.
+ */
 static PyObject* fit(PyObject *self, PyObject *args) {
     PyObject *centroids, *datapoints;
     PyObject *python_iter, *python_eps;
