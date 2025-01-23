@@ -25,10 +25,12 @@ struct centroid {
 static PyObject* fit(PyObject *self, PyObject *args);
 
 static PyMethodDef kmeansMethods[] = {
-    "fit",
-    (PyCFunction)fit,
-    METH_VARARGS,
-    PyDoc_STR("fit method for K-means clustering\nargs:\n initial_centroids: A Python list of K initialized centroids, each being a list of D floats.\n datapoints: A Python list of N data points, each being a list of D floats.\n max_iter (int): Maximum number of iterations to run the K-means algorithm.\n epsilon (double): Convergence threshold (for centroid change)."),
+    {
+        "fit",
+        (PyCFunction)fit,
+        METH_VARARGS,
+        PyDoc_STR("fit method for K-means clustering\nargs:\n initial_centroids: A Python list of K initialized centroids, each being a list of D floats.\n datapoints: A Python list of N data points, each being a list of D floats.\n max_iter (int): Maximum number of iterations to run the K-means algorithm.\n epsilon (double): Convergence threshold (for centroid change)."),
+    },
     {NULL, NULL, 0, NULL}
 };
 
@@ -124,7 +126,7 @@ void run_kmeans(int N, int d, int K, int iter, double eps, double *points, struc
     }
 }
 
-void free_all(int K, struct datapoint *datapoints, struct centroid *centroids) {
+void free_all(int K, double *datapoints, struct centroid *centroids) {
     int i;
     struct centroid *curr_centroid;
 
@@ -150,15 +152,16 @@ void free_all(int K, struct datapoint *datapoints, struct centroid *centroids) {
    PyObject*: A Python list of the final centroids, each being a list of D floats.
  */
 static PyObject* fit(PyObject *self, PyObject *args) {
-    PyObject *centroid_list = NULL;  /* output value */
     PyObject *centroids = NULL;
     PyObject *datapoints = NULL;
+    int K = 0;
     unsigned int iter = 0;
     double eps = 0.0;
     PyObject *curr_item = NULL;
     PyObject *curr_coor = NULL;
     double *datapoints_array = NULL;
     struct centroid *centroids_array = NULL;
+    PyObject *centroid_list = NULL;  /* output value */
 
     if (!PyArg_ParseTuple(args, "OOId", &centroids, &datapoints, &iter, &eps)) {
         goto cleanup;
@@ -186,7 +189,7 @@ static PyObject* fit(PyObject *self, PyObject *args) {
         }
     }
 
-    int K = PyObject_Length(centroids);
+    K = PyObject_Length(centroids);
     GOTO_CLEANUP_IF_NEGATIVE(K);
 
     centroids_array = (struct centroid *)calloc(K, sizeof(struct centroid));
