@@ -141,6 +141,83 @@ void free_all(int K, double *datapoints, struct centroid *centroids) {
     }
 }
 
+int build_output_centroids(int K, int d, struct centroid *centroids, PyObject **centroid_list_out) {
+    int status = ERROR;
+    PyObject *centroid_list = PyList_New(K);
+    GOTO_CLEANUP_IF_NULL(centroid_list);
+
+    for (int i = 0; i<K; i++){
+        PyObject *centroid_coordinates = PyList_New(d);
+        GOTO_CLEANUP_IF_NULL(centroid_coordinates);
+        for (int j = 0; j<d; j++){
+            PyObject *curr_coor = PyFloat_FromDouble(centroids[i].centroid_coords[j]);
+            GOTO_CLEANUP_IF_NULL(curr_coor);
+            GOTO_CLEANUP_IF_NEGATIVE(PyList_SetItem(centroid_coordinates, j, curr_coor));
+        }
+        GOTO_CLEANUP_IF_NEGATIVE(PyList_SetItem(centroid_list, i, centroid_coordinates));
+    }
+    
+    *centroid_list_out = centroid_list;
+    status = SUCCESS;
+
+cleanup:
+    return status;
+}
+
+int get_datapoints(int N, int d, PyObject *datapoints, double **datapoints_array_out) {
+    int status = ERROR;
+
+    double *datapoints_array = (double *)calloc(N*d, sizeof(double));
+    GOTO_CLEANUP_IF_NULL(datapoints_array);
+
+    for (int i = 0; i<N; i++) {
+        PyObject *curr_item = PyList_GetItem(datapoints, i);
+        GOTO_CLEANUP_IF_NULL(curr_item);
+        for (int j = 0; j<d; j++) {
+            PyObject *curr_coor = PyList_GetItem(curr_item, j);
+            GOTO_CLEANUP_IF_NULL(curr_coor);
+            datapoints_array[i*d+j] = PyFloat_AsDouble(curr_coor);
+            GOTO_CLEANUP_IF_PYERROR_OCCURED();
+        }
+    }
+
+    *datapoints_array_out = datapoints_array;
+    status = SUCCESS;
+
+cleanup:
+    return status;
+}
+
+int get_centroids(int K, int d, PyObject *centroids, struct centroid **centroids_array_out) {
+    int status = ERROR;
+    
+    struct centroid *centroids_array = (struct centroid *)calloc(K, sizeof(struct centroid));
+    GOTO_CLEANUP_IF_NULL(centroids_array);
+
+    for (int i = 0; i<K; i++) {
+        PyObject *curr_item = PyList_GetItem(centroids, i);
+        GOTO_CLEANUP_IF_NULL(curr_item);
+
+        centroids_array[i].centroid_coords = (double *)calloc(d, sizeof(double));
+        GOTO_CLEANUP_IF_NULL(centroids_array[i].centroid_coords);
+        centroids_array[i].sum = (double *)calloc(d, sizeof(double));
+        GOTO_CLEANUP_IF_NULL(centroids_array[i].sum);
+
+        for (int j = 0; j<d; j++){
+            PyObject *curr_coor = PyList_GetItem(curr_item, j);
+            GOTO_CLEANUP_IF_NULL(curr_coor);
+            centroids_array[i].centroid_coords[j] = PyFloat_AsDouble(curr_coor);
+            GOTO_CLEANUP_IF_PYERROR_OCCURED();
+        }
+    }
+
+    *centroids_array_out = centroids_array;
+    status = SUCCESS;
+
+cleanup:
+    return status;
+}
+
 /*  
   Fit method arguments:
    initial_centroids (PyObject*): A Python list of K initialized centroids.
@@ -158,7 +235,6 @@ static PyObject* fit(PyObject *self, PyObject *args) {
     unsigned int iter = 0;
     double eps = 0.0;
     PyObject *curr_item = NULL;
-    PyObject *curr_coor = NULL;
     double *datapoints_array = NULL;
     struct centroid *centroids_array = NULL;
     PyObject *centroid_list = NULL;  /* output value */
@@ -175,57 +251,18 @@ static PyObject* fit(PyObject *self, PyObject *args) {
     int d = PyObject_Length(curr_item);
     GOTO_CLEANUP_IF_NEGATIVE(d);
 
-    datapoints_array = (double *)calloc(N*d, sizeof(double));
-    GOTO_CLEANUP_IF_NULL(datapoints_array);
-
-    for (int i = 0; i<N; i++) {
-        curr_item = PyList_GetItem(datapoints, i);
-        GOTO_CLEANUP_IF_NULL(curr_item);
-        for (int j = 0; j<d; j++) {
-            curr_coor = PyList_GetItem(curr_item, j);
-            GOTO_CLEANUP_IF_NULL(curr_coor);
-            datapoints_array[i*d+j] = PyFloat_AsDouble(curr_coor);
-            GOTO_CLEANUP_IF_PYERROR_OCCURED();
-        }
-    }
-
     K = PyObject_Length(centroids);
     GOTO_CLEANUP_IF_NEGATIVE(K);
 
-    centroids_array = (struct centroid *)calloc(K, sizeof(struct centroid));
-    GOTO_CLEANUP_IF_NULL(centroids_array);
-
-    for (int i = 0; i<K; i++) {
-        curr_item = PyList_GetItem(centroids, i);
-        GOTO_CLEANUP_IF_NULL(curr_item);
-
-        centroids_array[i].centroid_coords = (double *)calloc(d, sizeof(double));
-        GOTO_CLEANUP_IF_NULL(centroids_array[i].centroid_coords);
-        centroids_array[i].sum = (double *)calloc(d, sizeof(double));
-        GOTO_CLEANUP_IF_NULL(centroids_array[i].sum);
-
-        for (int j = 0; j<d; j++){
-            curr_coor = PyList_GetItem(curr_item, j);
-            GOTO_CLEANUP_IF_NULL(curr_coor);
-            centroids_array[i].centroid_coords[j] = PyFloat_AsDouble(curr_coor);
-            GOTO_CLEANUP_IF_PYERROR_OCCURED();
-        }
+    if (SUCCESS != get_datapoints(N, d, datapoints, &datapoints_array) ||
+        SUCCESS != get_centroids(K, d, centroids, &centroids_array)) {
+        goto cleanup;
     }
 
     run_kmeans(N, d, K, iter, eps, datapoints_array, centroids_array);
 
-    centroid_list = PyList_New(K);
-    GOTO_CLEANUP_IF_NULL(centroid_list);
-
-    for (int i = 0; i<K; i++){
-        PyObject *centroid_coordinates = PyList_New(d);
-        GOTO_CLEANUP_IF_NULL(centroid_coordinates);
-        for (int j = 0; j<d; j++){
-            curr_coor = PyFloat_FromDouble(centroids_array[i].centroid_coords[j]);
-            GOTO_CLEANUP_IF_NULL(curr_coor);
-            GOTO_CLEANUP_IF_NEGATIVE(PyList_SetItem(centroid_coordinates, j, curr_coor));
-        }
-        GOTO_CLEANUP_IF_NEGATIVE(PyList_SetItem(centroid_list, i, centroid_coordinates));
+    if (SUCCESS != build_output_centroids(K, d, centroids_array, &centroid_list)) {
+        goto cleanup;
     }
 
 cleanup:
