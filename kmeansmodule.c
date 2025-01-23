@@ -5,6 +5,10 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
+#define GOTO_CLEANUP_IF_NULL(x) { if (x == NULL) { goto cleanup; } }
+#define GOTO_CLEANUP_IF_NEGATIVE(x) { if (x < 0) { goto cleanup; } }
+#define GOTO_CLEANUP_IF_PYERROR_OCCURED() { if (NULL != PyErr_Occurred()) { goto cleanup; } }
+
 const int SUCCESS = 0;
 const int ERROR = 1;
 
@@ -56,67 +60,89 @@ PyMODINIT_FUNC PyInit_mykmeanssp(void) {
    PyObject*: A Python list of the final centroids, each being a list of D floats.
  */
 static PyObject* fit(PyObject *self, PyObject *args) {
-    PyObject *centroids, *datapoints;
-    PyObject *python_iter, *python_eps;
-    PyObject *curr_item;
-    double *curr_coor;
-    double *datapoints_array;
-    struct centroid *centroids_array;
+    PyObject *centroid_list = NULL;  /* output value */
+    PyObject *centroids = NULL;
+    PyObject *datapoints = NULL;
+    PyObject *python_iter = NULL;
+    PyObject *python_eps = NULL;
+    PyObject *curr_item = NULL;
+    PyObject *curr_coor = NULL;
+    double *datapoints_array = NULL;
+    struct centroid *centroids_array = NULL;
 
     if (!PyArg_ParseTuple(args, "OOOO", &centroids, &datapoints, &python_iter, &python_eps)) {
-        return NULL;
+        goto cleanup;
     }
 
     int N = PyObject_Length(datapoints);
-    if (N < 0) {
-        return NULL;
-    }
+    GOTO_CLEANUP_IF_NEGATIVE(N);
 
     curr_item = PyList_GetItem(datapoints, 0);
+    GOTO_CLEANUP_IF_NULL(curr_item);
     int d = PyObject_Length(curr_item);
+    GOTO_CLEANUP_IF_NEGATIVE(d);
 
     datapoints_array = (double *)calloc(N*d, sizeof(double));
+    GOTO_CLEANUP_IF_NULL(datapoints_array);
 
     for (int i = 0; i<N; i++) {
         curr_item = PyList_GetItem(datapoints, i);
+        GOTO_CLEANUP_IF_NULL(curr_item);
         for (int j = 0; j<d; j++) {
-            datapoints_array[i*d+j] = PyFloat_AsDouble(PyList_GetItem(curr_item, j));
+            curr_item = PyList_GetItem(curr_item, j);
+            GOTO_CLEANUP_IF_NULL(curr_item);
+            datapoints_array[i*d+j] = PyFloat_AsDouble(curr_item);
+            GOTO_CLEANUP_IF_PYERROR_OCCURED();
         }
     }
 
     int K = PyObject_Length(centroids);
-    if (K < 0) {
-        return NULL;
-    }
+    GOTO_CLEANUP_IF_NEGATIVE(K);
 
     centroids_array = (struct centroid *)calloc(K, sizeof(struct centroid));
+    GOTO_CLEANUP_IF_NULL(centroids_array);
 
     for (int i = 0; i<K; i++) {
         curr_item = PyList_GetItem(centroids, i);
+        GOTO_CLEANUP_IF_NULL(curr_item);
+
         centroids_array[i].centroid_coords = (double *)calloc(d, sizeof(double));
+        GOTO_CLEANUP_IF_NULL(centroids_array[i].centroid_coords);
         centroids_array[i].sum = (double *)calloc(d, sizeof(double));
+        GOTO_CLEANUP_IF_NULL(centroids_array[i].sum);
+
         for (int j = 0; j<d; j++){
-            centroids_array[i].centroid_coords[j] = PyFloat_AsDouble(PyList_GetItem(curr_item, j));
+            curr_item = PyList_GetItem(curr_item, j);
+            GOTO_CLEANUP_IF_NULL(curr_item);
+            centroids_array[i].centroid_coords[j] = PyFloat_AsDouble(curr_item);
+            GOTO_CLEANUP_IF_PYERROR_OCCURED();
         }
     }
 
     long long_iter = PyLong_AsLong(python_iter); /* TODO: PyLong_AsInt wasn't recognized :( */
+    GOTO_CLEANUP_IF_PYERROR_OCCURED();
     int iter = (int)long_iter;
 
     double eps = PyFloat_AsDouble(python_eps);
+    GOTO_CLEANUP_IF_PYERROR_OCCURED();
 
     run_kmeans(N, d, K, iter, eps, datapoints_array, centroids_array);
 
-    PyObject *centroid_list = PyList_New(K);
+    centroid_list = PyList_New(K);
+    GOTO_CLEANUP_IF_NULL(centroid_list);
+
     for (int i = 0; i<K; i++){
         PyObject *centroid_coordinates = PyList_New(d);
+        GOTO_CLEANUP_IF_NULL(centroid_coordinates);
         for (int j = 0; j<d; j++){
             curr_coor = PyFloat_FromDouble(centroids_array[i].centroid_coords[j]);
-            PyList_SetItem(centroid_coordinates, j, curr_coor);
+            GOTO_CLEANUP_IF_NULL(curr_coor);
+            GOTO_CLEANUP_IF_NEGATIVE(PyList_SetItem(centroid_coordinates, j, curr_coor));
         }
-        PyList_SetItem(centroid_list, i, centroid_coordinates);
+        GOTO_CLEANUP_IF_NEGATIVE(PyList_SetItem(centroid_list, i, centroid_coordinates));
     }
 
+cleanup:
     free_all(K, datapoints_array, centroids_array);
 
     return centroid_list; 
@@ -142,7 +168,7 @@ double calc_euclidean_distance(double *coord1, double *coord2, int d){
 }
 
 
-void run_kmeans(int N, int d, int K, int iter, double eps, double **points, struct centroid *centroids) {
+void run_kmeans(int N, int d, int K, int iter, double eps, double *points, struct centroid *centroids) {
     int is_not_converged = 1;
     int j = 0;
     int k = 0;
@@ -209,22 +235,5 @@ void free_all(int K, struct datapoint *datapoints, struct centroid *centroids) {
             free(curr_centroid->sum);
         }
         free(centroids);
-    }
-}
-
-void print_results(int d, int K, struct centroid *centroids) {
-    int i = 0;
-    int j = 0;
-    
-    for (; i < K; i++){
-        for (; j < d; j++){
-            printf("%.4f,", (centroids + i)->centroid_coords[j]);
-            if (j < d - 1) {
-                printf(",");
-            }
-            else {
-                printf("\n");
-            }
-        }
     }
 }
