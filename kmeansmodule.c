@@ -8,9 +8,6 @@
 const int SUCCESS = 0;
 const int ERROR = 1;
 
-const double EPSILON = 0.001;
-const int DEFAULT_ITER = 200;
-
 const char *GENERIC_ERROR_MSG = "An Error Has Occurred\n";
 const char *INVALID_K_ERROR_MSG = "Invalid number of clusters!\n";
 const char *INVALID_ITER_ERROR_MSG = "Invalid maximum iteration!\n";
@@ -27,7 +24,7 @@ static PyMethodDef kmeansMethods[] = {
     "fit",
     (PyCFunction)fit,
     METH_VARARGS,
-    PyDoc_STR("TODO - docstring"),
+    PyDoc_STR("fit method for K-means clustering\nargs:\n initial_centroids: A Python list of K initialized centroids, each being a list of D floats.\n datapoints: A Python list of N data points, each being a list of D floats.\n max_iter (int): Maximum number of iterations to run the K-means algorithm.\n epsilon (double): Convergence threshold (for centroid change)."),
     {NULL, NULL, 0, NULL}
 };
 
@@ -47,6 +44,7 @@ PyMODINIT_FUNC PyInit_mykmeanssp(void) {
     }
     return m;
 }
+
 /*  
   Fit method arguments:
    initial_centroids (PyObject*): A Python list of K initialized centroids.
@@ -73,11 +71,9 @@ static PyObject* fit(PyObject *self, PyObject *args) {
     if (N < 0) {
         return NULL;
     }
-    printf("N: %d\n", N); /* TODO: delete */
 
     curr_item = PyList_GetItem(datapoints, 0);
     int d = PyObject_Length(curr_item);
-    printf("d: %d\n", d); /* TODO: delete */
 
     datapoints_array = (double *)calloc(N*d, sizeof(double));
 
@@ -92,7 +88,6 @@ static PyObject* fit(PyObject *self, PyObject *args) {
     if (K < 0) {
         return NULL;
     }
-    printf("K: %d\n", K); /* TODO: delete */
 
     centroids_array = (struct centroid *)calloc(K, sizeof(struct centroid));
 
@@ -107,10 +102,8 @@ static PyObject* fit(PyObject *self, PyObject *args) {
 
     long long_iter = PyLong_AsLong(python_iter); /* TODO: PyLong_AsInt wasn't recognized :( */
     int iter = (int)long_iter;
-    printf("iter: %d\n", iter); /* TODO: delete */
 
     double eps = PyFloat_AsDouble(python_eps);
-    printf("eps: %.4f\n", eps); /* TODO: delete */
 
     run_kmeans(N, d, K, iter, eps, datapoints_array, centroids_array);
 
