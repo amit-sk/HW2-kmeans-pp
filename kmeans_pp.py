@@ -62,6 +62,9 @@ def read_args():
     except ValueError:
         print(INVALID_EPS_ERROR_MSG)
         return 0, 0, [], [], 0, 0, 0, False
+    if eps < 0:
+        print(INVALID_EPS_ERROR_MSG)
+        return 0, 0, [], [], 0, 0, 0, False
     
     # get d
     d = len(datapoints[0])
@@ -90,40 +93,6 @@ def init_centroids(datapoints, datapoint_indexes, K):
         not_chosen.remove(new_centroid_ind)
 
     return centroids, centroid_indexes
-
-# TODO: remove this func, only for tests
-def run_kmeans(K, datapoints, centroids, d, eps, iter):
-    for i in range(iter):
-        old_centroids = centroids
-        centroids_sums = [[0 for i in range(d)] for j in range(K)]
-        centroids_counters = [0 for i in range(K)]
-        
-        for point in datapoints:
-            min_dist_centroid = 0
-            min_dist = euclidean_distance(point, centroids[0])
-
-            for ind, centroid in enumerate(centroids):
-                dist = euclidean_distance(point, centroid)
-
-                # if the point is closest to this centroid so far:
-                if dist < min_dist:
-                    # update the info of the closest centroid
-                    min_dist = dist
-                    min_dist_centroid = ind
-            
-            # add the point to the closest centroid's sum and up its counter by 1
-            for coord in range(d):
-                centroids_sums[min_dist_centroid][coord] += point[coord]
-            centroids_counters[min_dist_centroid] += 1
-        
-        # set the new centroids to the mean of all of the points closest to them
-        centroids = [[centroids_sums[j][i] / centroids_counters[j] for i in range(d)] for j in range(K)]
-
-        # if the centroids barely moved since the last iteration, stop
-        if max([euclidean_distance(centroids[i], old_centroids[i]) for i in range(K)]) < eps:
-            break
-    
-    return centroids
 
 def main():
     np.random.seed(1234)

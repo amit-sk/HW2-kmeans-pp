@@ -25,9 +25,6 @@ def plot_graph(k_range, inertia_ls, opt_k):
 
     plt.plot(list(k_range), inertia_ls, color='royalblue')
 
-    # plt.scatter(opt_k_point[0], opt_k_point[1], edgecolors="k", facecolors="none", s=200) # circling p1
-    # plt.scatter(opt_k_point_2[0], opt_k_point_2[1], edgecolors="k", facecolors="none", s=200) # circling p2
-    # plt.annotate("Elbow Point", opt_k_point, opt_k_point+annotation_shift) # annotating p1 only
     plt.annotate("Possible Elbow Points", (opt_k_point+opt_k_point_2)/2, 
                  (opt_k_point+opt_k_point_2)/2+annotation_shift) # annotating both points
 
